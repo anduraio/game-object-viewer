@@ -2,6 +2,7 @@
   "port": 8799,
   "workspace": "~",
   "roots": [
-    { "path": "code/GAME/All-Aboard-Life", "label": "All-Aboard-Life" }
+    { "path": "code/GAME/All-Aboard-Life", "label": "All-Aboard-Life" },
+    { "path": "code/GAME/3d-assets", "label": "3d-assets" }
   ]
 }

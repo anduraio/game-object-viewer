@@ -73,6 +73,19 @@ function detectSource(text) {
   return { geometries, builders };
 }
 
+function loadProv(root) {
+  // optional <root>/provenance.json: { "<file>": {made_by, date, method, ...},
+  // "<file>#<Model Name>": {...} } — attached to matching model entries
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(root, 'provenance.json'), 'utf8'));
+    const map = new Map();
+    for (const [k, v] of Object.entries(raw)) {
+      if (!k.startsWith('_')) map.set(k, v);
+    }
+    return map;
+  } catch { return new Map(); }
+}
+
 function scanRoots(cfg) {
   const models = [];
   const sources = [];
@@ -92,14 +105,14 @@ function scanRoots(cfg) {
     return path.basename(root.abs);
   };
 
-  const walk = (root, dir) => {
+  const walk = (root, dir, prov) => {
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const ent of entries) {
       if (ent.name.startsWith('.') || SKIP_DIRS.has(ent.name)) continue;
       const abs = path.join(dir, ent.name);
-      if (ent.isDirectory()) { walk(root, abs); continue; }
+      if (ent.isDirectory()) { walk(root, abs, prov); continue; }
       const rel = path.relative(cfg.workspace, abs).split(path.sep).join('/');
       if (seen.has(rel)) continue;
       seen.add(rel);
@@ -113,6 +126,7 @@ function scanRoots(cfg) {
           type: 'file', format: ext.slice(1),
           name: path.basename(ent.name, ext).replace(/[-_]+/g, ' '),
           game, path: rel, bytes: st.size, mtime: st.mtimeMs,
+          ...(prov.get(ent.name) ? { prov: prov.get(ent.name) } : {}),
         });
       } else if (ent.name.endsWith('.model.js')) {
         let names = [];
@@ -129,10 +143,12 @@ function scanRoots(cfg) {
           let id = names.length ? `${idBase}-${slug(nm)}` : idBase;
           while (usedIds.has(id)) id += `-${i}`;
           usedIds.add(id);
+          const pv = prov.get(`${ent.name}#${nm}`) || prov.get(ent.name);
           models.push({
             id, type: 'proc', format: 'proc', name: nm,
             game, path: rel, bytes: st.size, mtime: st.mtimeMs,
             regIndex: names.length ? i : null,
+            ...(pv ? { prov: pv } : {}),
           });
         });
       } else if (SOURCE_EXT.has(ext) && st.size <= MAX_SOURCE_BYTES) {
@@ -145,7 +161,10 @@ function scanRoots(cfg) {
     }
   };
 
-  for (const root of cfg.roots) walk(root, root.abs);
+  for (const root of cfg.roots) {
+    const prov = loadProv(root.abs);
+    walk(root, root.abs, prov);
+  }
   return { models, sources, scannedAt: new Date().toISOString() };
 }
 

@@ -171,6 +171,14 @@ const govImport = (u) => import(new URL(u, location.href).href);
   const infoMeta = document.getElementById('infoMeta');
   const infoPath = document.getElementById('infoPath');
   const loadingEl = document.getElementById('loading');
+  // info bar details (provenance, dims, path) can be folded away
+  const infoEl = document.getElementById('info');
+  const infoToggle = document.getElementById('infoToggle');
+  try { if (localStorage.getItem('gov.infoCollapsed') === '1') infoEl.classList.add('collapsed'); } catch { /* private mode */ }
+  infoToggle.addEventListener('click', () => {
+    const collapsed = infoEl.classList.toggle('collapsed');
+    try { localStorage.setItem('gov.infoCollapsed', collapsed ? '1' : '0'); } catch { /* private mode */ }
+  });
   const GLYPH = { glb: '▦', gltf: '▦', obj: '◇', stl: '△', ply: '◈', fbx: '▣', proc: '◆' };
 
   let entries = [];      // viewable models, flat, in sidebar order
@@ -383,7 +391,11 @@ const govImport = (u) => import(new URL(u, location.href).href);
       if (old) { modelRoot.remove(old); disposeObject(old); }
       modelRoot.add(fitted);
       const dims = `${st.dims} units`;
-      const meta = `${entry.game} · ${entry.format} · ${dims} · ${st.tris.toLocaleString()} tris`;
+      const p = entry.prov;
+      const provLine = p && p.made_by
+        ? ` · ${p.made_by}${p.date ? ' · ' + p.date : ''}${p.method ? ' · ' + p.method : ''}`
+        : '';
+      const meta = `${entry.game} · ${entry.format} · ${dims} · ${st.tris.toLocaleString()} tris${provLine}`;
       setInfo(entry.name, meta, entry.path);
       const u = new URL(location.href);
       u.searchParams.set('model', entry.id);

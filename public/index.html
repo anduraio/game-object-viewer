@@ -129,6 +129,15 @@
     border-top: 1px solid var(--line); padding: 8px 14px; display: flex; align-items: center;
     gap: 14px; font-size: 12px; color: var(--muted); min-height: 34px; flex-wrap: wrap;
   }
+  #infoToggle {
+    flex: none; width: 20px; height: 20px; padding: 0; line-height: 1; font-size: 10px;
+    background: none; border: 1px solid var(--line); border-radius: 4px;
+    color: var(--muted); cursor: pointer; transition: transform .12s ease;
+  }
+  #infoToggle:hover { color: var(--cyan); border-color: var(--cyan); }
+  #info.collapsed { flex-wrap: nowrap; }
+  #info.collapsed #infoMeta, #info.collapsed #infoPath, #info.collapsed .hint { display: none; }
+  #info.collapsed #infoToggle { transform: rotate(-90deg); }
   #info .nm { color: var(--text); font-weight: 650; font-size: 12.8px; }
   #info .sep { color: #33415c; }
   #info .err { color: #ff6b7a; }
@@ -178,6 +187,7 @@
       </div>
     </div>
     <div id="info">
+      <button id="infoToggle" title="hide / show details" aria-label="hide or show info details">&#9662;</button>
       <span class="nm" id="infoName">—</span>
       <span id="infoMeta"></span>
       <span class="path" id="infoPath"></span>
