@@ -406,11 +406,23 @@ const govImport = (u) => import(new URL(u, location.href).href);
   document.getElementById('prevBtn').addEventListener('click', () => step(-1));
   document.getElementById('nextBtn').addEventListener('click', () => step(1));
   searchEl.addEventListener('input', renderLib);
+
+  // sidebar collapse — the canvases reflow via their ResizeObservers
+  const toggleLibBtn = document.getElementById('toggleLib');
+  function setLib(hidden) {
+    document.body.classList.toggle('nolib', hidden);
+    toggleLibBtn.textContent = hidden ? 'show sidebar' : 'hide sidebar';
+    try { localStorage.setItem('gov.nolib', hidden ? '1' : '0'); } catch { /* private mode */ }
+  }
+  toggleLibBtn.addEventListener('click', () => setLib(!document.body.classList.contains('nolib')));
+  try { if (localStorage.getItem('gov.nolib') === '1') setLib(true); } catch { /* private mode */ }
+
   document.addEventListener('keydown', e => {
     if (e.target === searchEl || /input|textarea/i.test(e.target.tagName)) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key.toLowerCase() === 'r') Object.assign(isoState, DEFAULT);
+    else if (e.key.toLowerCase() === 'l') setLib(!document.body.classList.contains('nolib'));
     else if (e.code === 'Space') { e.preventDefault(); autoRot.checked = !autoRot.checked; }
   });
 

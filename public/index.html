@@ -58,11 +58,14 @@
   }
   button:hover { border-color: #2e3a50; background: #1d2737; }
 
-  main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 262px minmax(0, 1fr); }
+  main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 262px minmax(0, 1fr); transition: grid-template-columns .18s ease; }
+  body.nolib main { grid-template-columns: 0 minmax(0, 1fr); }
   aside {
     border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0;
+    min-width: 0;
     background: #0d111a;
   }
+  body.nolib aside { visibility: hidden; border-right-color: transparent; }
   .searchwrap { padding: 10px 10px 6px; }
   #search {
     width: 100%; background: #131a26; border: 1px solid var(--line); border-radius: 8px;
@@ -142,6 +145,7 @@
 <header>
   <div class="brand"><span class="dot"></span> game-object-viewer <small>· model library &amp; multi-view inspector</small></div>
   <div class="controls">
+    <button id="toggleLib" title="show or hide the model library (L)">hide sidebar</button>
     <div class="navbtns">
       <button id="prevBtn" title="previous model (←)">←</button>
       <button id="nextBtn" title="next model (→)">→</button>
@@ -177,7 +181,7 @@
       <span class="nm" id="infoName">—</span>
       <span id="infoMeta"></span>
       <span class="path" id="infoPath"></span>
-      <span class="hint">← → switch models · R reset · space spin</span>
+      <span class="hint">← → switch models · R reset · space spin · L sidebar</span>
     </div>
   </section>
 </main>
