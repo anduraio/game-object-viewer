@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>game-object-viewer</title>
+<script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js" } }
+</script>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --card: linear-gradient(160deg, #151c28 0%, #0e131c 100%);
+    --line: #1e2736;
+    --text: #c9d4e3;
+    --muted: #8fa1bb;
+    --accent: #ff7a1a;
+    --cyan: #6ee7ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 14px;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; border-bottom: 1px solid var(--line); flex: 0 0 auto; gap: 12px;
+  }
+  .brand { font-size: 13.5px; font-weight: 650; letter-spacing: .3px; display: flex; align-items: center; gap: 9px; white-space: nowrap; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 10px rgba(255,122,26,.8); }
+  .brand small { color: var(--muted); font-weight: 500; letter-spacing: .5px; }
+  .controls { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+  .navbtns { display: flex; gap: 6px; }
+  .chk { display: flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; user-select: none; }
+  .chk input {
+    appearance: none; width: 15px; height: 15px; border-radius: 4px;
+    border: 1px solid #2e3a50; background: #18202e; cursor: pointer; position: relative;
+  }
+  .chk input:checked { background: var(--accent); border-color: var(--accent); }
+  .chk input:checked::after {
+    content: ""; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px;
+    border: solid #10141c; border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  button {
+    background: #18202e; color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 5px 11px; font-size: 12.5px; cursor: pointer;
+  }
+  button:hover { border-color: #2e3a50; background: #1d2737; }
+
+  main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 262px minmax(0, 1fr); }
+  aside {
+    border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0;
+    background: #0d111a;
+  }
+  .searchwrap { padding: 10px 10px 6px; }
+  #search {
+    width: 100%; background: #131a26; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); padding: 7px 10px; font-size: 12.5px; outline: none;
+  }
+  #search:focus { border-color: #33415c; }
+  #lib { flex: 1 1 auto; overflow-y: auto; padding: 4px 6px 12px; }
+  .gamehdr {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 1.6px; color: var(--muted);
+    padding: 12px 8px 5px; text-transform: uppercase;
+  }
+  .item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+    cursor: pointer; border: 1px solid transparent;
+  }
+  .item:hover { background: #151d2b; }
+  .item.sel { background: #1a2434; border-color: #2b3a54; }
+  .item .glyph { width: 18px; text-align: center; color: var(--cyan); font-size: 12px; flex: 0 0 auto; }
+  .item .nm { font-size: 12.8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .fm {
+    margin-left: auto; flex: 0 0 auto; font-size: 9.5px; letter-spacing: 1px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; text-transform: uppercase;
+  }
+  .libempty { color: var(--muted); font-size: 12px; padding: 14px 10px; line-height: 1.6; }
+  details.srcs { border-top: 1px solid var(--line); flex: 0 0 auto; max-height: 40%; overflow-y: auto; }
+  details.srcs summary {
+    cursor: pointer; list-style: none; padding: 10px 12px; font-size: 11px; font-weight: 700;
+    letter-spacing: 1.4px; color: var(--muted); text-transform: uppercase; user-select: none;
+  }
+  details.srcs summary::before { content: "▸ "; }
+  details.srcs[open] summary::before { content: "▾ "; }
+  .src { padding: 5px 12px 7px; border-left: 2px solid #223; }
+  .src .p { font-size: 11.5px; color: var(--text); word-break: break-all; font-family: ui-monospace, Menlo, monospace; }
+  .src .h { font-size: 10.5px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+  .src .h b { color: var(--cyan); font-weight: 600; }
+
+  .stage { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+  .views { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 10px; padding: 10px; min-height: 0; }
+  #left { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; min-height: 0; }
+  .view {
+    position: relative; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; min-height: 0; min-width: 0;
+  }
+  .view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #isoCard { cursor: grab; }
+  #isoCard.dragging { cursor: grabbing; }
+  .tag {
+    position: absolute; bottom: 8px; left: 10px; z-index: 2;
+    font-size: 10.5px; font-weight: 600; letter-spacing: 2px; color: var(--muted);
+    background: rgba(9, 13, 20, .6); border: 1px solid rgba(60, 74, 98, .35);
+    padding: 3px 9px; border-radius: 6px; pointer-events: none; backdrop-filter: blur(4px);
+  }
+  #isoCard .tag { letter-spacing: 1px; text-transform: none; font-weight: 500; }
+  .loading {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    z-index: 3; background: rgba(10, 14, 22, .55); color: var(--cyan);
+    font-size: 12px; letter-spacing: 3px;
+  }
+  .loading.on { display: flex; }
+  #info {
+    border-top: 1px solid var(--line); padding: 8px 14px; display: flex; align-items: center;
+    gap: 14px; font-size: 12px; color: var(--muted); min-height: 34px; flex-wrap: wrap;
+  }
+  #info .nm { color: var(--text); font-weight: 650; font-size: 12.8px; }
+  #info .sep { color: #33415c; }
+  #info .err { color: #ff6b7a; }
+  #info .path { font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #info .hint { margin-left: auto; color: #5c6c86; font-size: 11px; letter-spacing: .3px; white-space: nowrap; }
+  @media (max-width: 1000px) {
+    main { grid-template-columns: 210px minmax(0, 1fr); }
+    .views { grid-template-columns: 1fr; grid-template-rows: minmax(0, 55%) minmax(0, 45%); }
+    #isoCard { order: -1; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="dot"></span> game-object-viewer <small>· model library &amp; multi-view inspector</small></div>
+  <div class="controls">
+    <div class="navbtns">
+      <button id="prevBtn" title="previous model (←)">←</button>
+      <button id="nextBtn" title="next model (→)">→</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="autoRot" /> auto-rotate</label>
+    <button id="resetIso">reset view</button>
+  </div>
+</header>
+<main>
+  <aside>
+    <div class="searchwrap"><input id="search" type="search" placeholder="search models…" /></div>
+    <div id="lib"></div>
+    <details class="srcs" id="srcsBox">
+      <summary>three.js sources</summary>
+      <div id="srcs"></div>
+    </details>
+  </aside>
+  <section class="stage">
+    <div class="views">
+      <div id="left">
+        <div class="view"><canvas id="c-front"></canvas><span class="tag">FRONT</span></div>
+        <div class="view"><canvas id="c-rear"></canvas><span class="tag">REAR</span></div>
+        <div class="view"><canvas id="c-side"></canvas><span class="tag">SIDE</span></div>
+        <div class="view"><canvas id="c-top"></canvas><span class="tag">TOP</span></div>
+      </div>
+      <div class="view" id="isoCard">
+        <canvas id="c-iso"></canvas>
+        <span class="tag">ISO &middot; drag to orbit &middot; scroll to zoom</span>
+        <div class="loading" id="loading">LOADING…</div>
+      </div>
+    </div>
+    <div id="info">
+      <span class="nm" id="infoName">—</span>
+      <span id="infoMeta"></span>
+      <span class="path" id="infoPath"></span>
+      <span class="hint">← → switch models · R reset · space spin</span>
+    </div>
+  </section>
+</main>
+
+<script src="./vendor/three.min.js"></script>
+<script src="./vendor/fflate.min.js"></script>
+<script src="./vendor/GLTFLoader.js"></script>
+<script src="./vendor/OBJLoader.js"></script>
+<script src="./vendor/STLLoader.js"></script>
+<script src="./vendor/PLYLoader.js"></script>
+<script src="./vendor/FBXLoader.js"></script>
+<script type="module">
+  // module-loader bridge: .model.js files that `await imports(url)` a game's own
+  // ES module get that module evaluated with the page's import map, so a game
+  // importing bare 'three' resolves to ./vendor/three.module.js.
+  window.govImport = (u) => import(new URL(u, location.href).href);
+</script>
+<script src="./app.js"></script>
+</body>
+</html>

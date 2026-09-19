@@ -1,0 +1,44 @@
+{
+  "name": "game-object-viewer",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Scan a workspace's games for 3D models and inspect each one from five fixed views — isometric plus front/rear/side/top. No dependencies, no build step.",
+  "license": "MIT",
+  "author": "anduraio",
+  "homepage": "https://github.com/anduraio/game-object-viewer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anduraio/game-object-viewer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anduraio/game-object-viewer/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "game-object-viewer": "./gov.js"
+  },
+  "files": [
+    "gov.js",
+    "gov.config.json",
+    "public",
+    "models",
+    "examples",
+    "vendor",
+    "SKILL.md",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node gov.js serve"
+  },
+  "keywords": [
+    "three",
+    "threejs",
+    "gltf",
+    "viewer",
+    "models",
+    "devtools",
+    "game"
+  ]
+}

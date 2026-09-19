@@ -1,0 +1,9 @@
+{
+  "port": 8799,
+  "workspace": "..",
+  "roots": [
+    "GAME",
+    { "path": "game-object-viewer/models", "label": "built-in" },
+    { "path": "game-object-viewer/examples", "label": "examples" }
+  ]
+}
