@@ -2,9 +2,24 @@
  * One shared scene, five viewports: a large isometric diagonal (front-left)
  * on the right, fixed orthographic FRONT / REAR / SIDE / TOP on the left.
  * The model list comes from GET /api/models; models load either from files
- * (glb/gltf/obj/stl/ply/fbx) or from *.model.js procedural builders. */
+ * (glb/gltf/obj/stl/ply/fbx) or from *.model.js procedural builders.
+ *
+ * The viewer itself runs on the same vendored three ESM build the import map
+ * hands to the games' own modules — one three everywhere, so a builder's
+ * objects and the renderer always agree. */
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+// dynamic-import bridge for .model.js builders: resolves through this page's
+// import map, so a game module importing bare 'three' or 'three/addons/...'
+// gets the same vendored build.
+const govImport = (u) => import(new URL(u, location.href).href);
+
 (function () {
-  'use strict';
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
   /* ---------------------------------------------- scene (shared) ------- */
@@ -12,8 +27,8 @@
   scene.background = new THREE.Color(0x0e131c);
   scene.fog = new THREE.Fog(0x0e131c, 14, 30);
 
-  scene.add(new THREE.HemisphereLight(0x9db2d6, 0x1a1f2b, 0.85));
-  const key = new THREE.DirectionalLight(0xffffff, 1.0);
+  scene.add(new THREE.HemisphereLight(0x9db2d6, 0x1a1f2b, 2.6));
+  const key = new THREE.DirectionalLight(0xffffff, 3.1);
   key.position.set(4, 12, 3.5);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -21,7 +36,7 @@
   key.shadow.camera.top = 5;   key.shadow.camera.bottom = -5;
   key.shadow.camera.far = 30;
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0x5f7cff, 0.45);
+  const rim = new THREE.DirectionalLight(0x5f7cff, 1.4);
   rim.position.set(-6, 4, -5);
   scene.add(rim);
 
@@ -48,7 +63,7 @@
   function makeRenderer(canvas) {
     const r = new THREE.WebGLRenderer({ canvas, antialias: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    r.outputEncoding = THREE.sRGBEncoding;
+    r.outputColorSpace = THREE.SRGBColorSpace;
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     return r;
@@ -138,10 +153,13 @@
   const autoRot = document.getElementById('autoRot');
 
   function frame() {
+    requestAnimationFrame(frame); // scheduled first: a throwing render must not kill the loop
     if (autoRot.checked && !dragging) isoState.yaw += .004;
     applyIso();
-    for (const v of views) v.renderer.render(scene, v.camera);
-    requestAnimationFrame(frame);
+    for (const v of views) {
+      try { v.renderer.render(scene, v.camera); }
+      catch (e) { console.error('render failed:', e); }
+    }
   }
   frame();
 
@@ -295,15 +313,15 @@
     return new Promise((resolve, reject) => {
       const fail = (label) => (e) => reject(new Error(label + ': ' + ((e && e.message) || e)));
       if (fmt === 'glb' || fmt === 'gltf') {
-        const loader = new THREE.GLTFLoader();
+        const loader = new GLTFLoader();
         loader.setResourcePath(dir);
         loader.load(url, g => resolve(g.scene), undefined, fail('gltf parse'));
       } else if (fmt === 'obj') {
-        new THREE.OBJLoader().load(url, o => resolve(o), undefined, fail('obj parse'));
+        new OBJLoader().load(url, o => resolve(o), undefined, fail('obj parse'));
       } else if (fmt === 'fbx') {
-        new THREE.FBXLoader().load(url, o => resolve(o), undefined, fail('fbx parse'));
+        new FBXLoader().load(url, o => resolve(o), undefined, fail('fbx parse'));
       } else if (fmt === 'stl' || fmt === 'ply') {
-        const L = fmt === 'stl' ? new THREE.STLLoader() : new THREE.PLYLoader();
+        const L = fmt === 'stl' ? new STLLoader() : new PLYLoader();
         L.load(url, geo => {
           if (!geo.attributes.normal) geo.computeVertexNormals();
           const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
@@ -327,14 +345,16 @@
     // builders and use what it is handed (THREE, imports). no globals leak in.
     new Function('registerGovModel', '"use strict";\n' + code)(registerGovModel);
     if (!regs.length) throw new Error('no registerGovModel() call in ' + entry.path);
+    // entries map 1:1 to registrations when the scanner could read them;
+    // otherwise every builder in the file is built and laid out side by side
+    const targets = entry.regIndex != null && regs[entry.regIndex] ? [regs[entry.regIndex]] : regs;
     const group = new THREE.Group();
     const names = [];
     let cursorX = 0;
-    for (const r of regs) {
-      const obj = await r.builder({ THREE: window.THREE, imports: window.govImport });
+    for (const r of targets) {
+      const obj = await r.builder({ THREE, imports: govImport });
       if (!obj || !obj.isObject3D) throw new Error(`builder "${r.name}" did not return a THREE.Object3D`);
       obj.userData.govName = r.name;
-      // a file may register several models — lay them out left to right
       obj.updateWorldMatrix(true, true);
       const box = new THREE.Box3().setFromObject(obj);
       obj.position.x += cursorX - box.min.x;
@@ -395,6 +415,9 @@
   });
 
   /* --------------------------------------------------------- boot ------ */
+  // escape hatch for agents and debugging: the shared scene and viewports
+  window.__gov = { scene, modelRoot, views, select };
+
   (async () => {
     try {
       await fetchLibrary();

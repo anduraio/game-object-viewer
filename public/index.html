@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>game-object-viewer</title>
 <script type="importmap">
-  { "imports": { "three": "./vendor/three.module.js" } }
+  {
+    "imports": {
+      "three": "./vendor/three.module.js",
+      "three/addons/": "./vendor/three-addons/"
+    }
+  }
 </script>
 <style>
   :root {
@@ -177,19 +182,6 @@
   </section>
 </main>
 
-<script src="./vendor/three.min.js"></script>
-<script src="./vendor/fflate.min.js"></script>
-<script src="./vendor/GLTFLoader.js"></script>
-<script src="./vendor/OBJLoader.js"></script>
-<script src="./vendor/STLLoader.js"></script>
-<script src="./vendor/PLYLoader.js"></script>
-<script src="./vendor/FBXLoader.js"></script>
-<script type="module">
-  // module-loader bridge: .model.js files that `await imports(url)` a game's own
-  // ES module get that module evaluated with the page's import map, so a game
-  // importing bare 'three' resolves to ./vendor/three.module.js.
-  window.govImport = (u) => import(new URL(u, location.href).href);
-</script>
-<script src="./app.js"></script>
+<script type="module" src="./app.js"></script>
 </body>
 </html>

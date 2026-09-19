@@ -1,9 +1,10 @@
 {
   "port": 8799,
-  "workspace": "..",
+  "workspace": "~",
   "roots": [
-    "GAME",
-    { "path": "game-object-viewer/models", "label": "built-in" },
-    { "path": "game-object-viewer/examples", "label": "examples" }
+    ".zcode/workspace/default/code/GAME",
+    "code/GAME",
+    { "path": ".zcode/workspace/default/code/game-object-viewer/models", "label": "built-in" },
+    { "path": ".zcode/workspace/default/code/game-object-viewer/examples", "label": "examples" }
   ]
 }

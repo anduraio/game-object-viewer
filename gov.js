@@ -22,10 +22,13 @@
  */
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const TOOL_DIR = import.meta.dirname;
+// roots and workspace may start with ~ — expanded against the user's home
+const expandHome = p => (p.startsWith('~') ? path.join(os.homedir(), p.slice(1)) : p);
 const CONFIG_PATH = path.join(TOOL_DIR, 'gov.config.json');
 const CACHE_PATH = path.join(TOOL_DIR, '.gov', 'library.json');
 
@@ -45,10 +48,15 @@ function loadConfig() {
   let cfg = defaults;
   try { cfg = { ...defaults, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) }; }
   catch (e) { if (e.code !== 'ENOENT') throw e; }
-  const workspace = path.resolve(TOOL_DIR, cfg.workspace);
+  const workspace = path.resolve(expandHome(cfg.workspace));
   const roots = cfg.roots
     .map(r => (typeof r === 'string' ? { path: r } : r))
-    .map(r => ({ ...r, abs: path.resolve(workspace, r.path) }))
+    .map(r => {
+      const rp = expandHome(r.path);
+      // relative paths are workspace-relative; ~- or /-paths stand alone
+      const abs = path.isAbsolute(rp) ? rp : path.resolve(workspace, rp);
+      return { ...r, abs };
+    })
     .filter(r => { try { return fs.statSync(r.abs).isDirectory(); } catch { return false; } });
   return { ...cfg, workspace, roots };
 }
@@ -70,16 +78,18 @@ function scanRoots(cfg) {
   const sources = [];
   const seen = new Set();
 
-  // grouping rule: a root that holds several projects (each in its own
-  // directory) groups by that first directory; otherwise the root's label.
+  // grouping rule: an explicitly labelled root always uses its label; an
+  // unlabelled root that holds several projects (each in its own directory)
+  // groups by that first directory; otherwise the root's folder name.
   const gameLabel = (root, relUnder) => {
+    if (root.label) return root.label;
     const first = relUnder.split('/')[0];
     if (relUnder.includes('/') && first) {
       try {
         if (fs.statSync(path.join(root.abs, first)).isDirectory()) return first;
       } catch { /* fall through */ }
     }
-    return root.label || path.basename(root.abs);
+    return path.basename(root.abs);
   };
 
   const walk = (root, dir) => {
@@ -110,13 +120,20 @@ function scanRoots(cfg) {
           const text = fs.readFileSync(abs, 'utf8');
           names = [...text.matchAll(/registerGovModel\(\s*['"`]([^'"`]+)['"`]/g)].map(m => m[1]);
         } catch { /* unreadable: still listed, named after the file */ }
-        const base = path.basename(ent.name, '.model.js').replace(/[-_]+/g, ' ');
-        models.push({
-          id: slug(rel.replace(/\.model\.js$/, '')),
-          type: 'proc', format: 'proc',
-          name: names[0] || base,
-          allNames: names,
-          game, path: rel, bytes: st.size, mtime: st.mtimeMs,
+        // one library entry per registered model; a file the scanner cannot
+        // parse registrations from falls back to a single file-named entry
+        const idBase = slug(rel.replace(/\.model\.js$/, ''));
+        const list = names.length ? names : [path.basename(ent.name, '.model.js').replace(/[-_]+/g, ' ')];
+        const usedIds = new Set();
+        list.forEach((nm, i) => {
+          let id = names.length ? `${idBase}-${slug(nm)}` : idBase;
+          while (usedIds.has(id)) id += `-${i}`;
+          usedIds.add(id);
+          models.push({
+            id, type: 'proc', format: 'proc', name: nm,
+            game, path: rel, bytes: st.size, mtime: st.mtimeMs,
+            regIndex: names.length ? i : null,
+          });
         });
       } else if (SOURCE_EXT.has(ext) && st.size <= MAX_SOURCE_BYTES) {
         let text; try { text = fs.readFileSync(abs, 'utf8'); } catch { continue; }

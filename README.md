@@ -38,9 +38,10 @@ registerGovModel('Void Raider Player Ship', ({ THREE }) => {
 ```
 
 The viewer fits each model to the pedestal automatically (longest edge → 3
-units, feet on the ground), so builders don't have to match scales. A file may
-register several models; they are laid out side by side. Builders may be
-`async` and may pull in the game's own modules through `imports(...)`.
+units, feet on the ground), so builders don't have to match scales. Each
+`registerGovModel` call is its own library entry, so one file can hold a whole
+family of models. Builders may be `async` and may pull in the game's own
+modules through `imports(...)`.
 
 **three.js sources** — `.js`/`.html` that constructs geometry but isn't
 viewable yet. The scan lists them with the builder and geometry names found
@@ -56,16 +57,17 @@ true when the game changes. See `GAME/pocket-sports/gov-models/character.model.j
 
 ```js
 registerGovModel('Pocket Sports Character (red)', async ({ imports }) => {
-  const mod = await imports('/file/GAME/pocket-sports/public/js/tv/scene.js');
+  const mod = await imports('/file/code/GAME/pocket-sports/public/js/tv/scene.js');
   const rig = mod.createCharacter({ color: '#ff4554', name: 'P1' });
   rig.group.rotation.y = Math.PI;   // game characters face -Z; viewer front is +Z
   return rig.group;
 });
 ```
 
-`/file/<workspace-relative-path>` serves any file under a configured root, so
-the game's ES modules load unmodified — its bare `import 'three'` resolves
-through the page's import map to the vendored `three.module.js`. Game-facing
+`/file/<path-relative-to-workspace>` serves any file under a configured root,
+so the game's ES modules load unmodified — its bare `import 'three'` and
+`import 'three/addons/...'` resolve through the page's import map to the
+vendored build, the same instance the viewer renders with. Game-facing
 dressing that is not model (name sprites, HUD labels) is removed before
 showing; presentation-only turns like facing the camera are done in the
 `.model.js`, not in the game.
@@ -92,17 +94,19 @@ is plain HTTP, so any client works:
 ```json
 {
   "port": 8799,
-  "workspace": "..",
+  "workspace": "~",
   "roots": ["GAME", { "path": "game-object-viewer/models", "label": "built-in" }]
 }
 ```
 
-`workspace` is the base for `/file/` paths (default: the tool's parent
-directory). Each root is a directory to walk; a root holding several projects
-(one directory per game) groups its models by that first directory, otherwise
-by its `label` or folder name. `node_modules`, `.git`, dotfolders and build
-output are skipped. Add a root when a new game lands; rescan happens on every
-`/api/models` call, so new model files appear on refresh.
+`workspace` is the base every `/file/` path reads against — set it to a
+directory that contains all your roots (`~` expands to the home directory).
+Relative root paths resolve against the workspace; `~`- or `/`-rooted paths
+stand alone. A root holding several projects (one directory per game) groups
+its models by that first directory; an explicit `label` always wins.
+`node_modules`, `.git`, dotfolders and build output are skipped. Add a root
+when a new game lands; rescan happens on every `/api/models` call, so new
+model files appear on refresh.
 
 ## What it is not
 
@@ -138,13 +142,15 @@ output are skipped. Add a root when a new game lands; rescan happens on every
 
 ## Vendored code
 
-`vendor/` bundles MIT-licensed builds of three.js (r128 global for the
-viewer's renderer, r170 ESM as the import-map target the games' own modules
-resolve against), the three.js example loaders, and fflate (needed by the FBX
-loader) — see `vendor/README.md` and the license texts in
-`vendor/licenses/`. They are vendored, not depended on, so the tool stays
-zero-install; point the script tags and import map in `public/index.html`
-elsewhere if you would rather serve your own.
+`vendor/` holds the MIT-licensed three.js r186 ESM build (`three.module.js` +
+`three.core.js`) plus the examples/jsm addons the loaders and the scanned
+games import (GLTF/OBJ/STL/PLY/FBX loaders, RoundedBoxGeometry, NURBS curves,
+BufferGeometryUtils, SkeletonUtils, fflate) — see `vendor/README.md` and the
+license texts in `vendor/licenses/`. The viewer and the games' own modules
+run on this same build through the import map, so a builder's objects and the
+renderer always agree. It is vendored, not depended on, so the tool stays
+zero-install; point the import map in `public/index.html` elsewhere if you
+would rather serve your own — the version must match what the games import.
 
 ## License
 

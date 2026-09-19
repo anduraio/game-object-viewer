@@ -29,7 +29,7 @@ Tool location: `code/game-object-viewer` (relative to the workspace root). Zero-
 
    ```js
    registerGovModel('Model Name', async ({ THREE, imports }) => {
-     const mod = await imports('/file/<workspace-relative-path-to-game-module>');
+     const mod = await imports('/file/<path-relative-to-workspace>');
      const obj = mod.createSomething(/* args the game itself passes */);
      obj.rotation.y = Math.PI;          // game faces -Z → viewer front is +Z, if needed
      obj.remove(obj.getObjectByName('…label')); // strip HUD dressing, keep the model
@@ -37,7 +37,7 @@ Tool location: `code/game-object-viewer` (relative to the workspace root). Zero-
    });
    ```
 
-   Prefer importing the game's real builder (stays true when the game changes) over copying code. Copy only when the builder is entangled with physics/engine state, and note the drift risk in a header comment. Sync builders get `({ THREE })`; async ones may `await imports(url)`. One file may register several models.
+   Prefer importing the game's real builder (stays true when the game changes) over copying code. Copy only when the builder is entangled with physics/engine state, and note the drift risk in a header comment. Sync builders get `({ THREE })`; async ones may `await imports(url)`. Each registration is its own library entry, so group a model family in one file.
 
 5. **Report**: after creating or fixing a model, open its deep link, screenshot, and say what the five views show (silhouette from TOP, proportions from FRONT/SIDE) — that is the polishing feedback the tool exists for.
 
